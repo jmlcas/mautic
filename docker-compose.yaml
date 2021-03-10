@@ -1,0 +1,30 @@
+version: "3.3"
+
+services:
+
+  db:
+    image: mariadb:latest
+    volumes:
+      - ./db_data:/var/lib/mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=secret
+      - MYSQL_DATABASE=mautic
+      - MYSQL_USER=mautic
+      - MYSQL_PASSWORD=secret
+
+  mautic:
+    container_name: mautic
+    image: mautic/mautic:v3
+    volumes:
+      - ./mautic_data:/var/www/html
+    environment:
+      - MAUTIC_DB_HOST=db:3306
+      - MAUTIC_DB_USER=mautic
+      - MAUTIC_DB_PASSWORD=secret
+      - MAUTIC_DB_NAME=mautic
+    depends_on:
+      - db     
+    restart: unless-stopped
+    ports:
+      - "8200:80"
