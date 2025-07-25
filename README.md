@@ -1,4 +1,3 @@
-# mautic
-Mautic - Docker-compose
+# Mautic
 
-Ver en "localhost:8200"
+Ver en "http://localhost:8200"
