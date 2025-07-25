@@ -1,9 +1,8 @@
-version: "3.3"
-
 services:
 
   db:
     image: mariadb:latest
+    container_name: mauticdb
     volumes:
       - ./db_data:/var/lib/mysql
     restart: unless-stopped
@@ -14,8 +13,8 @@ services:
       - MYSQL_PASSWORD=secret
 
   mautic:
+    image: mautic/mautic:latest
     container_name: mautic
-    image: mautic/mautic:v3
     volumes:
       - ./mautic_data:/var/www/html
     environment:
