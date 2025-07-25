@@ -1,29 +1,87 @@
+x-mautic-volumes:
+  &mautic-volumes
+  - ./mautic/config:/var/www/html/config:z
+  - ./mautic/logs:/var/www/html/var/logs:z
+  - ./mautic/media/files:/var/www/html/docroot/media/files:z
+  - ./mautic/media/images:/var/www/html/docroot/media/images:z
+#  - ./cron:/opt/mautic/cron:z # Uncomment this line to customize your cron configuration
+
 services:
-
   db:
-    image: mariadb:latest
-    container_name: mauticdb
-    volumes:
-      - ./db_data:/var/lib/mysql
-    restart: unless-stopped
+    image: mysql:lts
     environment:
-      - MYSQL_ROOT_PASSWORD=secret
-      - MYSQL_DATABASE=mautic
-      - MYSQL_USER=mautic
-      - MYSQL_PASSWORD=secret
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes: 
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: mysqladmin --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD ping
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default
 
-  mautic:
+  mautic_web:
     image: mautic/mautic:latest
-    container_name: mautic
-    volumes:
-      - ./mautic_data:/var/www/html
-    environment:
-      - MAUTIC_DB_HOST=db:3306
-      - MAUTIC_DB_USER=mautic
-      - MAUTIC_DB_PASSWORD=secret
-      - MAUTIC_DB_NAME=mautic
-    depends_on:
-      - db     
-    restart: unless-stopped
+    links:
+      - db:mysql
     ports:
-      - "8200:80"
+      - 1111:80
+    volumes: *mautic-volumes
+
+    environment:
+      - DOCKER_MAUTIC_LOAD_TEST_DATA=${DOCKER_MAUTIC_LOAD_TEST_DATA}
+    env_file:
+      - .mautic_env
+    healthcheck:
+      test: curl http://localhost
+      start_period: 5s
+      interval: 5s
+      timeout: 5s
+      retries: 100
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+
+  mautic_cron:
+    image: mautic/mautic:latest
+    links:
+      - db:mysql
+    volumes: *mautic-volumes
+    environment:
+      - DOCKER_MAUTIC_ROLE=mautic_cron
+    env_file:
+      - .mautic_env
+    depends_on:
+      mautic_web:
+        condition: service_healthy
+    networks:
+      - default
+
+  mautic_worker:
+    image: mautic/mautic:latest
+    links:
+      - db:mysql
+    volumes: *mautic-volumes
+    environment:
+      - DOCKER_MAUTIC_ROLE=mautic_worker
+    env_file:
+      - .mautic_env
+    depends_on:
+      mautic_web:
+        condition: service_healthy
+    networks:
+      - default
+
+volumes:
+  mysql-data:
+
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}-docker
